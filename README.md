@@ -2,7 +2,6 @@
 
 A tool a researcher can keep open during a usability test to time each task and record whether the participant succeeded and how many errors they made.
 
-Live demo: https://YOUR-USERNAME.github.io/session-logger/
 
 ## Why I made this
 When you run a moderated session you are watching the participant, taking notes, and trying to keep track of time all at once. I wanted something simple that does the counting so the researcher can pay attention to what the person is doing. It is also the kind of data you would analyze later, so I made it export cleanly.
