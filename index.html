@@ -1,0 +1,51 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Session Logger – usability test notes</title>
+<style>
+:root{--bg:#f8f7fb;--ink:#22212b;--mut:#62606e;--line:#dad8e3;--acc:#5b3fc4}
+@media(prefers-color-scheme:dark){:root{--bg:#17161d;--ink:#ecebf3;--mut:#a6a3b5;--line:#33313f;--acc:#b9a7ff}}
+*{box-sizing:border-box}body{margin:0;font:16px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+main{max-width:860px;margin:auto;padding:24px 16px}h1{margin:0 0 4px;font-size:1.6rem}.s{color:var(--mut)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}input,select{height:44px;padding:0 10px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:6px;font:inherit}
+input[type=text]{flex:1;min-width:180px}
+button{height:44px;padding:0 16px;border-radius:6px;border:1px solid var(--acc);background:var(--acc);color:var(--bg);font:inherit;font-weight:600;cursor:pointer}
+button.alt{background:transparent;color:var(--acc)}:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+#timer{font-size:3rem;font-weight:700;font-variant-numeric:tabular-nums;margin:16px 0 4px}
+table{width:100%;border-collapse:collapse;margin:16px 0}td,th{padding:8px;border-bottom:1px solid var(--line);text-align:left}
+.wrap{overflow-x:auto}
+</style></head><body><main>
+<h1>Session Logger</h1><p class="s">Run a moderated usability test: time each task, record success and errors, and export the data.</p>
+<div class="row">
+ <div><label for="tname">Task</label><br><input type="text" id="tname" placeholder="Find the return policy"></div>
+ <div><label for="pid">Participant</label><br><input type="text" id="pid" size="6" placeholder="P1"></div>
+</div>
+<p id="timer" aria-live="off">00:00.0</p>
+<div class="row"><button id="start">Start task</button><button class="alt" id="err" disabled>Log error (<span id="ec">0</span>)</button>
+<button class="alt" id="ok" disabled>Success</button><button class="alt" id="fail" disabled>Fail</button></div>
+<p id="status" role="status" class="s"></p>
+<div class="wrap"><table><thead><tr><th>Participant</th><th>Task</th><th>Outcome</th><th>Time (s)</th><th>Errors</th></tr></thead><tbody id="rows"></tbody></table></div>
+<p id="summary"></p>
+<button id="exp" class="alt">Export CSV</button> <button id="clr" class="alt">Clear all</button>
+<script>
+const $=id=>document.getElementById(id);let t0=0,raf=0,errors=0,log=[];
+try{log=JSON.parse(localStorage.getItem('sessions')||'[]')}catch{}
+const save=()=>{try{localStorage.setItem('sessions',JSON.stringify(log))}catch{}};
+const fmt=ms=>{const s=ms/1000;return String(Math.floor(s/60)).padStart(2,'0')+':'+(s%60).toFixed(1).padStart(4,'0')};
+const tick=()=>{$('timer').textContent=fmt(performance.now()-t0);raf=requestAnimationFrame(tick)};
+const ctl=on=>{['err','ok','fail'].forEach(i=>$(i).disabled=!on);$('start').disabled=on};
+$('start').onclick=()=>{if(!$('tname').value.trim()){$('status').textContent='Enter a task name first.';$('tname').focus();return}
+ errors=0;$('ec').textContent=0;$('status').textContent='Task running.';t0=performance.now();tick();ctl(true)};
+$('err').onclick=()=>{$('ec').textContent=++errors};
+function end(outcome){cancelAnimationFrame(raf);const ms=performance.now()-t0;
+ log.push({p:$('pid').value.trim()||'P?',task:$('tname').value.trim(),outcome,sec:+(ms/1000).toFixed(1),errors});
+ save();ctl(false);$('status').textContent=`Logged: ${outcome} in ${(ms/1000).toFixed(1)}s.`;render()}
+$('ok').onclick=()=>end('success');$('fail').onclick=()=>end('fail');
+function render(){
+ const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+ $('rows').innerHTML=log.length?log.map(r=>`<tr><td>${esc(r.p)}</td><td>${esc(r.task)}</td><td>${r.outcome}</td><td>${r.sec}</td><td>${r.errors}</td></tr>`).join(''):'<tr><td colspan="5">No tasks logged yet. Name a task and start the timer.</td></tr>';
+ const n=log.length;$('summary').textContent=n?`Task success rate: ${Math.round(100*log.filter(r=>r.outcome==='success').length/n)}%. Mean time: ${(log.reduce((a,r)=>a+r.sec,0)/n).toFixed(1)}s. Mean errors: ${(log.reduce((a,r)=>a+r.errors,0)/n).toFixed(1)}.`:''}
+$('exp').onclick=()=>{const q=v=>`"${String(v).replace(/"/g,'""')}"`;
+ const t='participant,task,outcome,seconds,errors\n'+log.map(r=>[r.p,r.task,r.outcome,r.sec,r.errors].map(q).join(',')).join('\n');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv'}));a.download='usability-sessions.csv';a.click()};
+$('clr').onclick=()=>{if(confirm('Delete all logged tasks?')){log=[];save();render()}};
+render();
+</script></main></body></html>
